@@ -10,6 +10,11 @@ The **Veracity Machine** helps users fact-check and analyze the truthfulness of 
 - Analyzing news articles for bias.
 - Verifying claims made in media outlets.
 
+## Environment Creation
+```bash
+conda create --name <env_name> --file requirements.txt
+```
+
 ## How to run
 ```python
 mesop veracity_machine.py
