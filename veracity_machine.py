@@ -7,9 +7,10 @@ import google.generativeai as genai
 import chromadb
 import PyPDF2  # For extracting text from PDF files
 import csv
+import pandas as pd
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = 'your_api_key_here'
+os.environ['GOOGLE_API_KEY'] = 'AIzaSyBMg1cRfCQCrPoXvOsXS6Z7nGYxU1dv3eQ'
 
 # Initialize API
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -70,6 +71,7 @@ def page():
             db_input()
             db_output()
             process_dataset_button()
+            # convert_store_lp_data()
         footer()
 
 def header_text():
@@ -441,3 +443,37 @@ def click_process_dataset(e: me.ClickEvent):
     state.in_progress = False
     state.output = "Political statements processed and stored in the database."
     yield
+
+#converting lierplus dataset and store in datebase
+def convert_store_lp_data():
+    train_data = pd.read_csv('data/train2.tsv', sep='\t',header=None, dtype=str)
+    test_data = pd.read_csv('data/test2.tsv', sep='\t', header=None, dtype=str)
+    validate_data = pd.read_csv('data/val2.tsv', sep='\t',header=None, dtype=str)
+
+    datasets = [
+        {"data": train_data, "source": "train"},
+        {"data": test_data, "source": "test"},
+        {"data": validate_data, "source": "validate"}
+    ]
+   
+    for dataset in datasets:
+        source = dataset["source"]
+        data = dataset["data"]
+     # Iterate over each row, combining it into a paragraph and processing it
+        for idx, row in data.iterrows():
+            # Combine row data into a single string (statement + metadata)
+            statement = ', '.join(row.astype(str))
+
+            # Store statement and metadata in ChromaDB
+            collection.add(
+                documents=[statement],         
+                metadatas=[{"source": source, "row_index": idx}],            
+                ids=[f"{source}_doc_{idx}"]   
+            )
+
+    print("All data has been successfully processed and stored in ChromaDB.")
+
+
+# # Verify the data count in ChromaDB
+# doc_count = collection.count()
+# print(f"Total documents stored in ChromaDB: {doc_count}")
