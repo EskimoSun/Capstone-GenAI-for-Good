@@ -10,7 +10,7 @@ import csv
 import pandas as pd
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = 'AIzaSyBMg1cRfCQCrPoXvOsXS6Z7nGYxU1dv3eQ'
+os.environ['GOOGLE_API_KEY'] = 'YOUR API KEY'
 
 # Initialize API
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
