@@ -72,6 +72,7 @@ def page():
             db_output()
             process_dataset_button()
             # convert_store_lp_data()
+            # convert_store_predai_data()
         footer()
 
 def header_text():
@@ -473,6 +474,37 @@ def convert_store_lp_data():
 
     print("All data has been successfully processed and stored in ChromaDB.")
 
+
+#converting predictive ai generated dataset and store in datebase
+def convert_store_predai_data():
+    train_data = pd.read_csv('PredictiveAI/train_data_full.tsv', sep='\t',header=None, dtype=str)
+    test_data = pd.read_csv('PredictiveAI/test_data_full.tsv', sep='\t', header=None, dtype=str)
+    validate_data = pd.read_csv('PredictiveAI/val_data_full.tsv', sep='\t',header=None, dtype=str)
+    micro_factors = pd.read_csv('PredictiveAI/average_scores.tsv', sep='\t',header=None, dtype=str)
+
+    datasets = [
+        {"data": train_data, "source": "train"},
+        {"data": test_data, "source": "test"},
+        {"data": validate_data, "source": "validate"},
+        {"data": micro_factors, "source": "factors"}
+    ]
+   
+    for dataset in datasets:
+        source = dataset["source"]
+        data = dataset["data"]
+     # Iterate over each row, combining it into a paragraph and processing it
+        for idx, row in data.iterrows():
+            # Combine row data into a single string (statement + metadata)
+            statement = ', '.join(row.astype(str))
+
+            # Store statement and metadata in ChromaDB
+            collection.add(
+                documents=[statement],         
+                metadatas=[{"source": source, "row_index": idx}],            
+                ids=[f"{source}_doc_{idx}"]   
+            )
+
+    print("All PredAI data has been successfully processed and stored in ChromaDB.")
 
 # # Verify the data count in ChromaDB
 # doc_count = collection.count()

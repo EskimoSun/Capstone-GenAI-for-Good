@@ -47,7 +47,7 @@ Install the required Python libraries using:
 pip install mesop google-generativeai chromadb PyPDF2
 ```
 
-## Setup
+## Pipeline
 
 1. **Clone the repository:**
    ```bash
@@ -56,9 +56,19 @@ pip install mesop google-generativeai chromadb PyPDF2
    ```
 
 2. **Set up your environment variables:**
-    In the root directory, create a `.env` file and add your Google API key:
+    In the root directory, create a `.env` file and add your Google API key.
 
-3. **Run the app:**
+3. **Add more factuality factors for Predictive AI if you want:**
+   ```bash
+   cd PredictiveAI
+   ```
+   Change the data path or add more factors, and then:
+   ```bash
+   bash run.sh
+   ```
+   In order to get datasets with factors as features and average score of different sets.
+
+4. **Run the app:**
     ```python
     mesop veracity_machine.py
     ```
