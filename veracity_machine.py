@@ -17,7 +17,7 @@ genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
 
 # Initialize Chroma client
 chroma_client = chromadb.PersistentClient(path="./chroma_db")
-collection = chroma_client.get_or_create_collection("my_collection")
+collection = chroma_client.get_or_create_collection("my_collection", metadata={"hnsw:space": "cosine"})
 
 # Instantiate the GenAI model
 generation_config = {
@@ -197,6 +197,7 @@ def click_send(e: me.ClickEvent):
         return
     state.in_progress = True
     input_text = state.input
+    top_100_statements = get_top_100_statements(input_text)
     combined_input = combine_pdf_and_prompt(input_text, state.pdf_text)  # Combine prompt with PDF text
     
     # Debugging: Log the combined input
@@ -208,6 +209,9 @@ def click_send(e: me.ClickEvent):
     for chunk in call_api(combined_input):
         state.output += chunk
         yield
+
+    state.output += '\n\n' + 'The probability of the statement truthness:\n\n' + str(top_100_statements) 
+    
     state.in_progress = False
     yield
 
@@ -447,6 +451,27 @@ def click_process_dataset(e: me.ClickEvent):
     state.in_progress = False
     state.output = "Political statements processed and stored in the database."
     yield
+    
+
+def get_top_100_statements(user_input):
+    # Query ChromaDB for top 100 similar inputs based on cosine similarity
+    results = collection.query(
+        query_texts=[user_input],
+        n_results=100,
+        include=["documents"],
+        where = {"source": {"$in": ["train", "test", "validate"]}}
+    )
+
+    #store and return the number of each 100 statements in dictionary
+    statement_dic = {}
+    for i in range(100):
+        statement = results['documents'][0][i].split(', ')[2]
+        if statement not in statement_dic:
+            statement_dic[statement] = 1
+        else:
+            statement_dic[statement] += 1   
+    return statement_dic
+
 
 #converting lierplus dataset and store in datebase
 def convert_store_lp_data():
