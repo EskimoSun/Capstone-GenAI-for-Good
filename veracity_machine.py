@@ -10,7 +10,7 @@ import csv
 import pandas as pd
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = 'YOUR API KEY'
+os.environ['GOOGLE_API_KEY'] = 'AIzaSyC52jr2wKQnpg592NZgw1dq2LkeZL5GDaI'
 
 # Initialize API
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -220,20 +220,19 @@ def combine_pdf_and_prompt(prompt: str, pdf_text: str) -> str:
 # Sends API call to GenAI model with user input
 def call_api(input_text):
     # Disabled until implementation of database retrieval
-#    results = collection.query(
-#        query_texts=[input_text],
-#        n_results=3,
-#        include=["documents", "metadatas"]
-#    )
+    # results = collection.query(
+    #    query_texts=[input_text],
+    #    n_results=3,
+    #    include=["documents", "metadatas"]
+    # )
 
     context = " "#.join(results['documents'][0]) if results['documents'] else ""
-
     # Add context to the prompt
     full_prompt = f"Context: {context}\n\nUser: {input_text}"
-    
     response = chat_session.send_message(full_prompt)
     time.sleep(0.5)
-    yield response.text
+    yield response.candidates[0].content.parts[0].text
+
 
 # Display output from GenAI model
 def output():
@@ -351,6 +350,10 @@ def footer():
         me.html(
             "Made with <a href='https://google.github.io/mesop/'>Mesop</a>",
         )
+
+
+
+
 
 # Load dataset and collect string statements
 def process_dataset(file_path):
