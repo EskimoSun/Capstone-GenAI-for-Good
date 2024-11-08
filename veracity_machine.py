@@ -33,9 +33,6 @@ model = genai.GenerativeModel(
 )
 chat_session = model.start_chat(history=[])
 
-# Specify filepath to LiarPlus dataset
-liar_plus_filepath = "data/train_100.csv"
-
 @me.stateclass
 class State:
     input: str
@@ -70,7 +67,6 @@ def page():
             output()
             db_input()
             db_output()
-            process_dataset_button()
             # convert_store_lp_data()
             # convert_store_predai_data()
         footer()
@@ -133,10 +129,6 @@ def extract_text_from_pdf(file: me.UploadedFile):
         extracted_text += page.extract_text()
 
     state.pdf_text = extracted_text  # Store extracted PDF text in state
-    
-    # Debugging: Print extracted text to ensure it's correct
-#    if state.pdf_text:
-#        print(f"Extracted PDF Text: {state.pdf_text[:100]}")  # Display first 100 characters
 
 def display_pdf_text():
     """Display the extracted PDF text."""
@@ -199,9 +191,6 @@ def click_send(e: me.ClickEvent):
     input_text = state.input
     top_100_statements = get_top_100_statements(input_text)
     combined_input = combine_pdf_and_prompt(input_text, state.pdf_text)  # Combine prompt with PDF text
-    
-    # Debugging: Log the combined input
-#    print(f"Combined input for AI:\n{combined_input}")
 
     state.input = ""
     yield
@@ -221,15 +210,39 @@ def combine_pdf_and_prompt(prompt: str, pdf_text: str) -> str:
         return prompt
     return f"Prompt: {prompt}\n\nPDF Content: {pdf_text}"  # Combine entire text
 
+def chunk_pdf_text(pdf_text: str) -> list[str]:
+    if not pdf_text:
+        return []
+        
+    prompt = """Split the following text into logical chunks (max 10 chunks) of reasonable size. 
+    Preserve complete paragraphs and maintain context. Return ONLY the chunks as a numbered list, with no additional text.
+    Format each chunk like:
+    1. [chunk text]
+    2. [chunk text]
+    etc.
+
+    Text to split:
+    {text}
+    """
+
+    response = chat_session.send_message(prompt.format(text=pdf_text))
+    chunks_text = response.text.strip()
+    
+    # Split on numbered lines and clean up
+    chunks = []
+    for line in chunks_text.split('\n'):
+        # Skip empty lines
+        if not line.strip():
+            continue
+        # Remove the number prefix and clean whitespace
+        chunk = line.split('.', 1)[-1].strip()
+        if chunk:
+            chunks.append(chunk)
+            
+    return chunks
+
 # Sends API call to GenAI model with user input
 def call_api(input_text):
-    # Disabled until implementation of database retrieval
-    # results = collection.query(
-    #    query_texts=[input_text],
-    #    n_results=3,
-    #    include=["documents", "metadatas"]
-    # )
-
     context = " "#.join(results['documents'][0]) if results['documents'] else ""
     # Add context to the prompt
     full_prompt = f"Context: {context}\n\nUser: {input_text}"
@@ -306,21 +319,13 @@ def click_add_to_db(e: me.ClickEvent):
     state = me.state(State)
     if not state.db_input:
         return
+
+    collection.add(
+                documents=[state.db_input],         
+                metadatas=[{"source": 'manual', "row_index": 'none'}],            
+                ids=[f"doc_{int(time.time())}"]   
+            )
     
-    # Process inputted text
-    analysis = analyze_statement(state.db_input)
-    score = extract_veracity_score(analysis)
-
-    # Add to Chroma database
-    if score is not None:
-        collection.add(
-            documents=[state.db_input],
-            metadatas=[{"analysis": analysis, "veracity_score": score}],
-            ids=[f"doc_{int(time.time())}"]  # Using timestamp as unique ID
-        )
-    else: 
-        print(f"Failed to extract veracity score for statement: {state.db_input[:50]}...")
-
     state.db_output = f"Manually added to database: {state.db_input[:50]}..."
     state.db_input = ""
     yield
@@ -354,104 +359,6 @@ def footer():
         me.html(
             "Made with <a href='https://google.github.io/mesop/'>Mesop</a>",
         )
-
-
-
-
-
-# Load dataset and collect string statements
-def process_dataset(file_path):
-    statements = []
-    with open(file_path, 'r') as csvfile:
-        reader = csv.reader(csvfile)
-        next(reader)  # Skip header row if present
-        for row in reader:
-            statements.append(row[2])
-    return statements
-
-# API call to GenAI for each dataset statement
-def analyze_statement(statement):
-    # Note: Need to make sure GenAI outputs the correct format.
-    #       Also replace factors with explanation of factuality factors.
-    prompt = f"""
-    Analyze the following political statement for factuality:
-    
-    "{statement}"
-    
-    Consider the following factors:
-    1. Verifiability of claims
-    2. Use of reliable sources
-    3. Logical consistency
-    4. Context and completeness
-    5. Potential biases
-    
-    Based on these factors, rate the veracity of the statement on a scale of 0 to 10, 
-    where 0 is completely false and 10 is completely true.
-    
-    Provide your analysis and the final veracity score in the following format:
-    Analysis: [Your detailed analysis here]
-    Veracity Score: [Score between 0 and 10, do not include any string explanation]
-
-    If the final veracity score could not be determined due to crucial missing information, follow the following format:
-    Analysis: [Your detailed analysis here]
-    Score Missing Reason: [Your reason for not reaching a score]
-    """
-    
-    response = chat_session.send_message(prompt)
-    return response.text
-
-# Helper function to extract veracity score from GenAI output
-def extract_veracity_score(analysis):
-    lines = analysis.split('\n')
-    for line in lines:
-        if line.startswith("Veracity Score:"):
-            return float(line.split(':')[1].strip())
-    return None
-
-# Iterate over dataset statements, send API calls, and store into database
-def process_and_store_statements(statements):
-    for statement in statements:
-        analysis = analyze_statement(statement)
-        score = extract_veracity_score(analysis)
-        
-        # Store in chromaDB
-        if score is not None:
-            # Stores original statement, full outputted analysis, and veracity score
-            collection.add(
-                documents=[statement],
-                metadatas=[{"analysis": analysis, "veracity_score": score}],
-                ids=[f"doc_{int(time.time())}"]
-            )
-            print(f"Added to database: {statement[:50]}...")
-        else:
-            print(f"Failed to extract veracity score for statement: {statement[:50]}...")
-
-        # avoid rate limit
-        time.sleep(1)
-
-# Buttom element for initiating dataset processing
-def process_dataset_button():
-    with me.box(style=me.Style(margin=me.Margin(top=36))):
-        me.button(
-            "Process LiarPlus Dataset",
-            on_click=click_process_dataset,
-            color="primary",
-        )
-
-# Dataset processing
-def click_process_dataset(e: me.ClickEvent):
-    state = me.state(State)
-    state.in_progress = True
-    yield
-
-    # Assuming the dataset is stored in a CSV file
-    statements = process_dataset(liar_plus_filepath)
-    process_and_store_statements(statements)
-
-    state.in_progress = False
-    state.output = "Political statements processed and stored in the database."
-    yield
-    
 
 def get_top_100_statements(user_input):
     # Query ChromaDB for top 100 similar inputs based on cosine similarity
