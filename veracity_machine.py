@@ -10,7 +10,7 @@ import csv
 import pandas as pd
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = ''
+os.environ['GOOGLE_API_KEY'] = 'AIzaSyDYzYQNtdff7sxg23uUpVavrxl9mNe_1CY'
 
 # Initialize API
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -163,7 +163,7 @@ def chat_input():
                 value=state.input,
                 autosize=True,
                 min_rows=4,
-                placeholder="Enter your prompt",
+                placeholder="Enter your customized prompt, or will do default FCOT if empty.",
                 style=me.Style(
                     padding=me.Padding(top=16, left=16),
                     background="white",
@@ -185,12 +185,15 @@ def textarea_on_blur(e: me.InputBlurEvent):
 
 def click_send(e: me.ClickEvent):
     state = me.state(State)
-    if not state.input:
+    if not state.input.strip():  # Check if input is empty or contains only whitespace
+        state.input = "Default input text here."  # Default FCT prompt if no input is provided
         return
+    
     state.in_progress = True
     input_text = state.input
     top_100_statements = get_top_100_statements(input_text)
-    combined_input = combine_pdf_and_prompt(input_text, state.pdf_text)  # Combine prompt with PDF text
+    fct_prompt = generate_fct_prompt(input_text)
+    combined_input = combine_pdf_and_prompt(fct_prompt, state.pdf_text)  # Combine prompt with PDF text
 
     state.input = ""
     yield
@@ -200,9 +203,37 @@ def click_send(e: me.ClickEvent):
         yield
 
     state.output += '\n\n' + 'The probability of the statement truthness:\n\n' + str(top_100_statements) 
-    
+    state.output += '\n\n' + 'Analysis completed using the provided or default settings.'
     state.in_progress = False
     yield
+
+# Fractal COT & Function Call
+# Define the complex objective functions
+frequency_heuristic = [
+    {"description": "Repetition Analysis", "details": "Analyzing wider coverage helps assess consensus. If multiple independent sources confirm manipulation, it strengthens the claim. Even widespread agreement about deceptive editing wouldn't automatically justify government action against CBS. The First Amendment protects against content-based restrictions."},
+    {"description": "Origin Tracing", "details": "Confirmed sources are critical. Discrepancies between reporting and original sources raise red flags."},
+    {"description": "Evidence Verification", "details": "Expert analysis is the most crucial element. Expert opinions on video manipulation are essential. Expert testimony would be necessary for any legal action alleging manipulation, though such a case would face significant First Amendment hurdles."}
+]
+
+misleading_intentions = [
+    {"description": "Omission Checks", "details": "Assess the omissions' impact. Did they distort the message? Did they create a demonstrably false representation? (Proving this is difficult)."},
+    {"description": "Exaggeration Analysis", "details": "Evaluate the 'scandal' claim. Does the evidence support it, or is it hyperbole? Does the situation, even if accurately reported, justify calls for license revocation under existing legal and constitutional frameworks?"},
+    {"description": "Target Audience Assessment", "details": "Analyze audience manipulation. Identify targeting tactics (language, framing). While such tactics can be ethically questionable, they are generally protected speech unless they involve provable falsehoods and meet the very high legal bar for defamation or incitement."}
+]
+
+def generate_fct_prompt(input_text, iterations=3):
+    prompt = f"Initial Evaluation: {input_text}\n\n"
+    for i in range(1, iterations + 1):
+        prompt += f"Iteration {i}: Evaluate the text based on the following objectives:\n"
+        prompt += "\nFrequency Heuristic:\n"
+        for fh in frequency_heuristic:
+            prompt += f"{fh['description']}: {fh['details']}\n"
+        prompt += "\nMisleading Intentions:\n"
+        for mi in misleading_intentions:
+            prompt += f"{mi['description']}: {mi['details']}\n"
+        prompt += "\nProvide a percentage score and explanation for each objective function ranking.\n\n"
+    prompt += "Final Evaluation: Return a veracity score for the text."
+    return prompt
 
 def combine_pdf_and_prompt(prompt: str, pdf_text: str) -> str:
     """Combines the user's prompt with the extracted PDF text."""
