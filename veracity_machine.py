@@ -8,11 +8,13 @@ import chromadb
 import PyPDF2  # For extracting text from PDF files
 import csv
 import pandas as pd
+from dotenv import load_dotenv
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = ''
+# os.environ['GOOGLE_API_KEY'] = ''
 
 # Initialize API
+load_dotenv()
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
 
 # Initialize Chroma client
@@ -31,7 +33,9 @@ model = genai.GenerativeModel(
     model_name="gemini-1.5-pro-002",
     generation_config=generation_config,
 )
-chat_session = model.start_chat(history=[])
+
+conversation_history=[]
+chat_session = model.start_chat(history=conversation_history)
 
 @me.stateclass
 class State:
@@ -195,12 +199,14 @@ def click_send(e: me.ClickEvent):
     state.input = ""
     yield
 
-    for chunk in call_api(combined_input):
+    state.output += f"Here is the input question: {input_text}\n\n"
+
+    for chunk in call_api(combined_input, chat_session, chat_session.history):
         state.output += chunk
         yield
 
-    state.output += '\n\n' + 'The probability of the statement truthness:\n\n' + str(top_100_statements) 
-    
+    state.output += '\n\n The probability of the statement truthness:\n\n' + str(top_100_statements) + '\n\n'
+
     state.in_progress = False
     yield
 
@@ -240,16 +246,30 @@ def chunk_pdf_text(pdf_text: str) -> list[str]:
             chunks.append(chunk)
             
     return chunks
-
+   
+    
 # Sends API call to GenAI model with user input
-def call_api(input_text):
-    context = " "#.join(results['documents'][0]) if results['documents'] else ""
-    # Add context to the prompt
-    full_prompt = f"Context: {context}\n\nUser: {input_text}"
-    response = chat_session.send_message(full_prompt)
-    time.sleep(0.5)
-    yield response.candidates[0].content.parts[0].text
+def call_api(input_text, chat_session, conversation_history):
+    formatted_history = [
+        {"role": message["role"], "parts": [{"text": message["parts"][0]['text']}]}
+        for message in conversation_history
+    ]
+    
+    # Reinitialize the chat session based on conversation history
+    chat_session = model.start_chat(history=formatted_history)
+    
+    # Add the user's new message
+    new_message = {"role": "user", "parts": [{"text": input_text}]}
+    conversation_history.append(new_message)
+    
+    response = chat_session.send_message(input_text)
 
+    # Add AI responses
+    ai_response = response.candidates[0].content.parts[0].text
+    conversation_history.append({"role": "model", "parts": [{"text": ai_response}]})
+    time.sleep(0.5)
+    
+    yield ai_response
 
 # Display output from GenAI model
 def output():
