@@ -8,6 +8,9 @@ import chromadb
 import PyPDF2  # For extracting text from PDF files
 import csv
 import pandas as pd
+from google.generativeai.types import content_types
+from collections.abc import Iterable
+from utils import *
 # from dotenv import load_dotenv
 
 # Remember to set your API key here
@@ -28,12 +31,26 @@ generation_config = {
     "max_output_tokens": 8192,
     "response_mime_type": "text/plain",
 }
+obj_funcs = [repetition_analysis, origin_tracing, evidence_verification, omission_checks, exaggeration_analysis, target_audience_assessment]
 model = genai.GenerativeModel(
     model_name="gemini-1.5-pro-002",
     generation_config=generation_config,
+    tools=obj_funcs,
 )
+# fcmodel = genai.GenerativeModel(
+#     model_name="gemini-1.5-pro-002",
+#     generation_config=generation_config,
+#     tools= obj_funcs,
+# )
+
+def tool_config_from_mode(mode: str, fns: Iterable[str] = ()):
+    """Create a tool config with the specified function calling mode."""
+    return content_types.to_tool_config(
+        {"function_calling_config": {"mode": mode, "allowed_function_names": fns}}
+    )
 
 chat_session = model.start_chat(history=[])
+tool_config = tool_config_from_mode("auto")
 
 @me.stateclass
 class State:
@@ -197,9 +214,6 @@ def click_send(e: me.ClickEvent):
     fct_prompt = generate_fct_prompt(input_text)
     combined_input = combine_pdf_and_prompt(fct_prompt, state.pdf_text)  # Combine prompt with PDF text
 
-    # state.input = ""
-    # yield
-
     for chunk in call_api(combined_input):
         state.output += chunk
         yield
@@ -226,14 +240,14 @@ misleading_intentions = [
 def generate_fct_prompt(input_text, iterations=3):
     prompt = f'Use 3 iterations to check the veracity score of this news article. In each, determine what you missed in the previous iteration based on your evaluation of the objective functions. Also put the result from RAG into consideration/rerank, these are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}'
     for i in range(1, iterations + 1):
-        prompt += f"Iteration {i}: Evaluate the text based on the following objectives:\n"
+        prompt += f"Iteration {i}: Evaluate the text based on the following objectives and also on microfactors:\n"
         prompt += "\nFactuality Factor 1: Frequency Heuristic:\n"
         for fh in frequency_heuristic:
             prompt += f"{fh['description']}: {fh['details']}\n"
         prompt += "\nFactuality Factor 2: Misleading Intentions:\n"
         for mi in misleading_intentions:
             prompt += f"{mi['description']}: {mi['details']}\n"
-        prompt += "\nProvide a percentage score and explanation for each objective function ranking.\n\n"
+        prompt += "\nProvide a percentage score and explanation for each objective function ranking and its microfactors.\n\n"
     prompt += "Final Evaluation: Return an exact numeric veracity score for the text."
     return prompt
 
@@ -280,9 +294,10 @@ def call_api(input_text):
     context = " "#.join(results['documents'][0]) if results['documents'] else ""
     # Add context to the prompt
     full_prompt = f"Context: {context}\n\nUser: {input_text}"
-    response = chat_session.send_message(full_prompt)
+    response = chat_session.send_message(full_prompt, tool_config=tool_config)
     # time.sleep(0.5)
-    yield response.candidates[0].content.parts[0].text
+    # yield response.candidates[0].content.parts[0].text
+    yield response.parts[0].text
 
 # Display output from GenAI model
 def output():
