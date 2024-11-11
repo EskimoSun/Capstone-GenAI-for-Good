@@ -8,6 +8,7 @@ import chromadb
 import PyPDF2  # For extracting text from PDF files
 import csv
 import pandas as pd
+# from dotenv import load_dotenv
 
 # Remember to set your API key here
 os.environ['GOOGLE_API_KEY'] = 'AIzaSyDYzYQNtdff7sxg23uUpVavrxl9mNe_1CY'
@@ -31,6 +32,7 @@ model = genai.GenerativeModel(
     model_name="gemini-1.5-pro-002",
     generation_config=generation_config,
 )
+
 chat_session = model.start_chat(history=[])
 
 @me.stateclass
@@ -202,8 +204,8 @@ def click_send(e: me.ClickEvent):
         state.output += chunk
         yield
 
-    state.output += '\n\n' + 'The probability of the statement truthness:\n\n' + str(top_100_statements) 
-    state.output += '\n\n' + 'Analysis completed using the provided or default settings.'
+    state.output += '\n\n The probability of the statement truthness:\n\n' + str(top_100_statements) + '\n\n'
+
     state.in_progress = False
     yield
 
@@ -271,16 +273,16 @@ def chunk_pdf_text(pdf_text: str) -> list[str]:
             chunks.append(chunk)
             
     return chunks
-
+   
+    
 # Sends API call to GenAI model with user input
 def call_api(input_text):
     context = " "#.join(results['documents'][0]) if results['documents'] else ""
     # Add context to the prompt
     full_prompt = f"Context: {context}\n\nUser: {input_text}"
     response = chat_session.send_message(full_prompt)
-    time.sleep(0.5)
+    # time.sleep(0.5)
     yield response.candidates[0].content.parts[0].text
-
 
 # Display output from GenAI model
 def output():
