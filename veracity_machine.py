@@ -222,7 +222,7 @@ misleading_intentions = [
 ]
 
 def generate_fct_prompt(input_text, iterations=3):
-    prompt = f"Initial Evaluation: {input_text}\n\n"
+    prompt = 'Use 3 iterations. in each, determine what you missed in the previous iteration based on your evaluation of the objective functions.'
     for i in range(1, iterations + 1):
         prompt += f"Iteration {i}: Evaluate the text based on the following objectives:\n"
         prompt += "\nFrequency Heuristic:\n"
