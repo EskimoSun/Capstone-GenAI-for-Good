@@ -195,8 +195,8 @@ def click_send(e: me.ClickEvent):
     fct_prompt = generate_fct_prompt(input_text)
     combined_input = combine_pdf_and_prompt(fct_prompt, state.pdf_text)  # Combine prompt with PDF text
 
-    state.input = ""
-    yield
+    # state.input = ""
+    # yield
 
     for chunk in call_api(combined_input):
         state.output += chunk
@@ -210,29 +210,29 @@ def click_send(e: me.ClickEvent):
 # Fractal COT & Function Call
 # Define the complex objective functions
 frequency_heuristic = [
-    {"description": "Repetition Analysis", "details": "Analyzing wider coverage helps assess consensus. If multiple independent sources confirm manipulation, it strengthens the claim. Even widespread agreement about deceptive editing wouldn't automatically justify government action against CBS. The First Amendment protects against content-based restrictions."},
-    {"description": "Origin Tracing", "details": "Confirmed sources are critical. Discrepancies between reporting and original sources raise red flags."},
-    {"description": "Evidence Verification", "details": "Expert analysis is the most crucial element. Expert opinions on video manipulation are essential. Expert testimony would be necessary for any legal action alleging manipulation, though such a case would face significant First Amendment hurdles."}
+    {"description": "Micro Factor 1: Repetition Analysis", "details": "Analyzing wider coverage helps assess consensus. If multiple independent sources confirm manipulation, it strengthens the claim. Even widespread agreement about deceptive editing wouldn't automatically justify government action against CBS. The First Amendment protects against content-based restrictions."},
+    {"description": "Micro Factor 2: Origin Tracing", "details": "Confirmed sources are critical. Discrepancies between reporting and original sources raise red flags."},
+    {"description": "Micro Factor 3: Evidence Verification", "details": "Expert analysis is the most crucial element. Expert opinions on video manipulation are essential. Expert testimony would be necessary for any legal action alleging manipulation, though such a case would face significant First Amendment hurdles."}
 ]
 
 misleading_intentions = [
-    {"description": "Omission Checks", "details": "Assess the omissions' impact. Did they distort the message? Did they create a demonstrably false representation? (Proving this is difficult)."},
-    {"description": "Exaggeration Analysis", "details": "Evaluate the 'scandal' claim. Does the evidence support it, or is it hyperbole? Does the situation, even if accurately reported, justify calls for license revocation under existing legal and constitutional frameworks?"},
-    {"description": "Target Audience Assessment", "details": "Analyze audience manipulation. Identify targeting tactics (language, framing). While such tactics can be ethically questionable, they are generally protected speech unless they involve provable falsehoods and meet the very high legal bar for defamation or incitement."}
+    {"description": "Micro Factor 1: Omission Checks", "details": "Assess the omissions' impact. Did they distort the message? Did they create a demonstrably false representation? (Proving this is difficult)."},
+    {"description": "Micro Factor 2: Exaggeration Analysis", "details": "Evaluate the 'scandal' claim. Does the evidence support it, or is it hyperbole? Does the situation, even if accurately reported, justify calls for license revocation under existing legal and constitutional frameworks?"},
+    {"description": "Micro Factor 3: Target Audience Assessment", "details": "Analyze audience manipulation. Identify targeting tactics (language, framing). While such tactics can be ethically questionable, they are generally protected speech unless they involve provable falsehoods and meet the very high legal bar for defamation or incitement."}
 ]
 
 def generate_fct_prompt(input_text, iterations=3):
-    prompt = 'Use 3 iterations. in each, determine what you missed in the previous iteration based on your evaluation of the objective functions.'
+    prompt = f'Use 3 iterations to check the veracity score of this news article. In each, determine what you missed in the previous iteration based on your evaluation of the objective functions. Also put the result from RAG into consideration/rerank, these are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}'
     for i in range(1, iterations + 1):
         prompt += f"Iteration {i}: Evaluate the text based on the following objectives:\n"
-        prompt += "\nFrequency Heuristic:\n"
+        prompt += "\nFactuality Factor 1: Frequency Heuristic:\n"
         for fh in frequency_heuristic:
             prompt += f"{fh['description']}: {fh['details']}\n"
-        prompt += "\nMisleading Intentions:\n"
+        prompt += "\nFactuality Factor 2: Misleading Intentions:\n"
         for mi in misleading_intentions:
             prompt += f"{mi['description']}: {mi['details']}\n"
         prompt += "\nProvide a percentage score and explanation for each objective function ranking.\n\n"
-    prompt += "Final Evaluation: Return a veracity score for the text."
+    prompt += "Final Evaluation: Return an exact numeric veracity score for the text."
     return prompt
 
 def combine_pdf_and_prompt(prompt: str, pdf_text: str) -> str:
