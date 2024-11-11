@@ -1,8 +1,8 @@
+import mesop as me
 import time
 import os
 import base64
 import io
-import mesop as me
 import google.generativeai as genai
 import chromadb
 import PyPDF2  # For extracting text from PDF files
@@ -11,6 +11,8 @@ import pandas as pd
 from google.generativeai.types import content_types
 from collections.abc import Iterable
 from utils import *
+import asyncio
+from prediction_engine import PredictionEngine
 # from dotenv import load_dotenv
 
 # Remember to set your API key here
@@ -54,13 +56,23 @@ tool_config = tool_config_from_mode("auto")
 
 @me.stateclass
 class State:
-    input: str
-    output: str
-    in_progress: bool
-    db_input: str
-    db_output: str
-    file: me.UploadedFile  # Storing the uploaded file
-    pdf_text: str = ""  # Store extracted PDF text
+    input: str = ""
+    output: str = ""
+    in_progress: bool = False
+    db_input: str = ""
+    db_output: str = ""
+    file: me.UploadedFile | None = None
+    pdf_text: str = ""
+    is_training: bool = False
+    training_status: str = ""
+    training_error: str = ""
+
+_prediction_engine = None
+def get_prediction_engine():
+    global _prediction_engine
+    if _prediction_engine is None:
+        _prediction_engine = PredictionEngine()
+    return _prediction_engine
 
 # Master function for the page
 @me.page(path="/")
@@ -80,6 +92,7 @@ def page():
             )
         ):
             header_text()
+            train_predictive_section()
             uploader()
             display_pdf_text()
             chat_input()
@@ -105,6 +118,91 @@ def header_text():
                 color="transparent",
             ),
         )
+
+def train_predictive(event: me.ClickEvent):
+    state = me.state(State)
+    if state.is_training:
+        return
+    
+    try:
+        state.is_training = True
+        state.training_status = "Initializing prediction engine..."
+        yield
+        
+        # Initialize prediction engine
+        engine = get_prediction_engine()
+        
+        state.training_status = "Loading dataset and preparing models..."
+        yield
+        
+        # Start the training process
+        engine.load_dataset_and_prepare_models()
+        
+        state.training_status = "Training complete!"
+        yield
+        
+    except Exception as e:
+        state.training_error = f"Training failed: {str(e)}"
+    finally:
+        state.is_training = False
+        yield
+
+# Button element for training predictive model
+def train_predictive_section():
+    state = me.state(State)
+    
+    # Container box
+    with me.box(
+        style=me.Style(
+            padding=me.Padding.all(16),
+            margin=me.Margin(top=36),
+        )
+    ):
+        # Training button without context manager
+        me.button(
+            "Train Classifier" if not state.is_training else "Training in Progress...",
+            on_click=train_predictive,
+            disabled=state.is_training,
+            style=me.Style(width="100%")
+        )
+        
+        # Show spinner if training
+        if state.is_training:
+            with me.box(
+                style=me.Style(
+                    margin=me.Margin(top=8),
+                    display="flex",
+                    justify_content="center"
+                )
+            ):
+                me.progress_spinner()
+        
+        # Status message
+        if state.training_status:
+            with me.box(
+                style=me.Style(
+                    padding=me.Padding.all(12),
+                    margin=me.Margin(top=8),
+                    background="#F0F4F9",
+                    border_radius=8
+                )
+            ):
+                me.text(state.training_status)
+        
+        # Error message
+        if state.training_error:
+            with me.box(
+                style=me.Style(
+                    padding=me.Padding.all(12),
+                    margin=me.Margin(top=8),
+                    background="#FEE2E2",
+                    border_radius=8
+                )
+            ):
+                me.text(
+                    state.training_error,
+                    style=me.Style(color="#DC2626")
+                )
 
 # Upload function for PDF article
 def uploader():
@@ -210,8 +308,14 @@ def click_send(e: me.ClickEvent):
     
     state.in_progress = True
     input_text = state.input
+
+    '''TODO: Potential implementation of chunking here (By statement)'''
+
+    engine = get_prediction_engine()
+    predict_score = engine.predict_new_example(convert_statement_to_series(input_text))['overall']
+
     top_100_statements = get_top_100_statements(input_text)
-    fct_prompt = generate_fct_prompt(input_text)
+    fct_prompt = generate_fct_prompt(input_text, predict_score)
     combined_input = combine_pdf_and_prompt(fct_prompt, state.pdf_text)  # Combine prompt with PDF text
 
     for chunk in call_api(combined_input):
@@ -222,6 +326,20 @@ def click_send(e: me.ClickEvent):
 
     state.in_progress = False
     yield
+
+def convert_statement_to_series(statement):
+    '''
+    TODO: Will need to extract speaker info later on
+    '''
+    if not isinstance(statement, str):
+        return pd.Series(['','', '', '', '', '', '','','0.0','0.0','0.0','0.0','0.0', '', ''])
+    subject = ''
+    speaker = ''
+    speaker_title = ''
+    state = ''
+    party_aff = ''
+    context = ''
+    return pd.Series(['','',subject, statement, speaker, speaker_title, state, party_aff,'0.0','0.0','0.0','0.0','0.0', context, ''])
 
 # Fractal COT & Function Call
 # Define the complex objective functions
@@ -237,8 +355,9 @@ misleading_intentions = [
     {"description": "Micro Factor 3: Target Audience Assessment", "details": "Analyze audience manipulation. Identify targeting tactics (language, framing). While such tactics can be ethically questionable, they are generally protected speech unless they involve provable falsehoods and meet the very high legal bar for defamation or incitement."}
 ]
 
-def generate_fct_prompt(input_text, iterations=3):
-    prompt = f'Use 3 iterations to check the veracity score of this news article. In each, determine what you missed in the previous iteration based on your evaluation of the objective functions. Also put the result from RAG into consideration/rerank, these are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}'
+def generate_fct_prompt(input_text, predict_score, iterations=3):
+    prompt = f'Use 3 iterations to check the veracity score of this news article. In each, determine what you missed in the previous iteration based on your evaluation of the objective functions. Also put the result from RAG into consideration/rerank.'
+    prompt += f'\n\n RAG:\n Here, out of six potential labels (true, mostly-true, half-true, barely-true, false, pants-fire), this is the truthfulness label predicted using a classifier model: {predict_score}.\n These are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}'
     for i in range(1, iterations + 1):
         prompt += f"Iteration {i}: Evaluate the text based on the following objectives and also on microfactors:\n"
         prompt += "\nFactuality Factor 1: Frequency Heuristic:\n"
@@ -291,7 +410,7 @@ def chunk_pdf_text(pdf_text: str) -> list[str]:
     
 # Sends API call to GenAI model with user input
 def call_api(input_text):
-    context = " "#.join(results['documents'][0]) if results['documents'] else ""
+    context = " "
     # Add context to the prompt
     full_prompt = f"Context: {context}\n\nUser: {input_text}"
     response = chat_session.send_message(full_prompt, tool_config=tool_config)

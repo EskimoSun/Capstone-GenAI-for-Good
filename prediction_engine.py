@@ -4,12 +4,9 @@ import spacy
 from tqdm import tqdm
 import torch
 from transformers import BertTokenizer, BertModel
-import concurrent.futures
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.decomposition import PCA
-import warnings
-import math
 from collections import Counter
 
 class PredictionEngine:
@@ -106,7 +103,7 @@ class PredictionEngine:
 
         # Export datasets to TSV files with all features
         for dtype, data in self.datasets.items():
-            data.to_csv(f"{dtype}_data_full.tsv", sep='\t', index=False)
+            data.to_csv(f"PredictiveAI/{dtype}_data_full.tsv", sep='\t', index=False)
             print(f"{dtype.capitalize()} dataset saved to {dtype}_data_full.tsv.")
 
         # Calculate and save average scores to a TSV file
@@ -116,7 +113,7 @@ class PredictionEngine:
                 scores.append([factor, dtype, average_score])
 
         scores_df = pd.DataFrame(scores, columns=['factor', 'source', 'score'])
-        scores_df.to_csv('average_scores.tsv', sep='\t', index=False)
+        scores_df.to_csv('PredictiveAI/average_scores.tsv', sep='\t', index=False)
         print("Average scores saved to 'average_scores.tsv'.")
         
         # Initialize BERT models
