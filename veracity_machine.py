@@ -312,7 +312,7 @@ def click_send(e: me.ClickEvent):
     '''TODO: Potential implementation of chunking here (By statement)'''
 
     engine = get_prediction_engine()
-    predict_score = engine.predict_new_example(convert_statement_to_series(input_text))['overall']
+    predict_score = engine.predict_new_example(convert_statement_to_series(state.pdf_text))['overall']
 
     top_100_statements = get_top_100_statements(input_text)
     fct_prompt = generate_fct_prompt(input_text, predict_score)
