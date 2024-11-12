@@ -16,7 +16,7 @@ from prediction_engine import PredictionEngine
 # from dotenv import load_dotenv
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = 'AIzaSyDYzYQNtdff7sxg23uUpVavrxl9mNe_1CY'
+os.environ['GOOGLE_API_KEY'] = ''
 
 # Initialize API
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
