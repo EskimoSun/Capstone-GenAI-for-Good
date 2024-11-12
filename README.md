@@ -52,7 +52,7 @@ pip install mesop google-generativeai chromadb PyPDF2
 1. **Clone the repository:**
    ```bash
    git clone <repository-url>
-   cd <repository-directory>
+   cd <repository-directory>/src
    ```
 
 2. **Set up your environment variables:**
