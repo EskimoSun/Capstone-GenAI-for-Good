@@ -356,10 +356,10 @@ misleading_intentions = [
 ]
 
 def generate_fct_prompt(input_text, predict_score, iterations=3):
-    prompt = f'Use 3 iterations to check the veracity score of this news article. In each, determine what you missed in the previous iteration based on your evaluation of the objective functions. Also put the result from RAG into consideration/rerank.'
+    prompt = f'Use {iterations} iterations to check the veracity score of this news article. In each, determine what you missed in the previous iteration based on your evaluation of the objective functions. Also put the result from RAG into consideration/rerank.'
     prompt += f'\n\n RAG:\n Here, out of six potential labels (true, mostly-true, half-true, barely-true, false, pants-fire), this is the truthfulness label predicted using a classifier model: {predict_score}.\n These are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}'
     for i in range(1, iterations + 1):
-        prompt += f"Iteration {i}: Evaluate the text based on the following objectives and also on microfactors:\n"
+        prompt += f"Iteration {i}: Evaluate the text based on the following objectives and also on microfactors, give explanations on each of these:\n"
         prompt += "\nFactuality Factor 1: Frequency Heuristic:\n"
         for fh in frequency_heuristic:
             prompt += f"{fh['description']}: {fh['details']}\n"
