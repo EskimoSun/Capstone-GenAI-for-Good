@@ -86,7 +86,7 @@ class PredictionEngine:
         
         # Load datasets
         for dtype in ['train', 'val', 'test']:
-            df = pd.read_csv(f"data/{dtype}2.tsv", sep="\t", 
+            df = pd.read_csv(f"../data/{dtype}2.tsv", sep="\t", 
                            header=None, dtype=str).drop(columns=[0])
             df.columns = ["ID", "label", "statement", "subjects", "speaker", "speaker_job_title", "state_info", "party_affiliation", "barely_true_counts", "false_counts", "half_true_counts", "mostly_true_counts", "pants_on_fire_counts", "context", "justification"]
             df[self.count_columns] = df[self.count_columns].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
@@ -103,7 +103,7 @@ class PredictionEngine:
 
         # Export datasets to TSV files with all features
         for dtype, data in self.datasets.items():
-            data.to_csv(f"PredictiveAI/{dtype}_data_full.tsv", sep='\t', index=False)
+            data.to_csv(f"../PredictiveAI/{dtype}_data_full.tsv", sep='\t', index=False)
             print(f"{dtype.capitalize()} dataset saved to {dtype}_data_full.tsv.")
 
         # Calculate and save average scores to a TSV file
@@ -113,7 +113,7 @@ class PredictionEngine:
                 scores.append([factor, dtype, average_score])
 
         scores_df = pd.DataFrame(scores, columns=['factor', 'source', 'score'])
-        scores_df.to_csv('PredictiveAI/average_scores.tsv', sep='\t', index=False)
+        scores_df.to_csv('../PredictiveAI/average_scores.tsv', sep='\t', index=False)
         print("Average scores saved to 'average_scores.tsv'.")
         
         # Initialize BERT models
