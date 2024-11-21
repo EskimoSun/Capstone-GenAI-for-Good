@@ -20,7 +20,7 @@ import re
 from sklearn.metrics import accuracy_score, classification_report
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = ''
+os.environ['GOOGLE_API_KEY'] = 'AIzaSyC4Xy7c2xkSMaDz5v2RJ-aSFiaTZc5Zbgc'
 
 # Initialize API
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
