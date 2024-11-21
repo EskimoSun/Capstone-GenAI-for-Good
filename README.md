@@ -92,7 +92,6 @@ pip install mesop google-generativeai chromadb PyPDF2
 
 
 ## src Folder Contents
-
 -**PredictiveAI/**: Includes scripts and modules for predictive analysis and modeling.
 -**chroma_db/**: Stores structured data embeddings and database files for ChromaDB management.
 -**saved_models/**: Contains optimized pre-trained models with reduced storage requirements.
