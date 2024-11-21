@@ -89,3 +89,15 @@ pip install mesop google-generativeai chromadb PyPDF2
 
 5. **Store and Query Articles:**  
    Store articles and retrieve them using ChromaDB for future reference.
+
+
+## src Folder Contents
+- **PredictiveAI/**: Includes scripts and modules for predictive analysis and modeling.
+- **chroma_db/**: Stores structured data embeddings and database files for ChromaDB management.
+- **saved_models/**: Contains optimized pre-trained models with reduced storage requirements.
+- **2024_polifact.py**: Script for scraping 2024 polifacts data.
+- **main.py**: Initial Mesop outline with foundational project functionality
+- **news.pdf**: Sample dataset of political news in PDF format for model evaluation.
+- **prediction_engine.py**: Core machine learning pipeline for building and evaluating predictive models.
+- **utils.py**: Provides utility and helper functions for function calling.
+- **veracity_machine.py**: Main script integrating PredictiveAI and GenAI models functionalities.
