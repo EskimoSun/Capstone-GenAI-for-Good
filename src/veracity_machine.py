@@ -16,7 +16,7 @@ from prediction_engine import PredictionEngine
 # from dotenv import load_dotenv
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = ''
+# os.environ['GOOGLE_API_KEY'] = ''
 
 # Initialize API
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -101,6 +101,7 @@ def page():
             db_output()
             # convert_store_lp_data()
             # convert_store_predai_data()
+            # convert_store_polifact_data()
         footer()
 
 def header_text():
@@ -355,7 +356,8 @@ misleading_intentions = [
     {"description": "Micro Factor 3: Target Audience Assessment", "details": "Analyze audience manipulation. Identify targeting tactics (language, framing). While such tactics can be ethically questionable, they are generally protected speech unless they involve provable falsehoods and meet the very high legal bar for defamation or incitement."}
 ]
 
-def generate_fct_prompt(input_text, predict_score, iterations=3):
+# def generate_fct_prompt(input_text, predict_score, iterations=3):
+def generate_fct_prompt(input_text, iterations=3):
     prompt = f'Use {iterations} iterations to check the veracity score of this news article. In each, determine what you missed in the previous iteration based on your evaluation of the objective functions. Also put the result from RAG into consideration/rerank.'
     prompt += f'\n\n RAG:\n Here, out of six potential labels (true, mostly-true, half-true, barely-true, false, pants-fire), this is the truthfulness label predicted using a classifier model: {predict_score}.\n These are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}'
     for i in range(1, iterations + 1):
@@ -533,13 +535,18 @@ def get_top_100_statements(user_input):
         query_texts=[user_input],
         n_results=100,
         include=["documents"],
-        where = {"source": {"$in": ["train", "test", "validate"]}}
+        where = {"source": {"$in": ["train", "test", "validate", "polifact"]}}
     )
 
     #store and return the number of each 100 statements in dictionary
+    truth_rank = ['true', 'mostly-true', 'half-true', 'barely-true', 'pants-fire', 'false']
     statement_dic = {}
     for i in range(100):
-        statement = results['documents'][0][i].split(', ')[2]
+        if results['documents'][0][i].split(', ')[2] in truth_rank: # the train,test,val dataset
+            statement = results['documents'][0][i].split(', ')[2]
+        else: # within the polifact2024 dataset
+            statement = results['documents'][0][i].split(', ')[-1]
+
         if statement not in statement_dic:
             statement_dic[statement] = 1
         else:
@@ -607,6 +614,27 @@ def convert_store_predai_data():
             )
 
     print("All PredAI data has been successfully processed and stored in ChromaDB.")
+
+
+def convert_store_polifact_data():
+    polifact_data = pd.read_csv("data/polifact2024.tsv", sep='\t',header=None, dtype=str)
+
+    datasets = {"data": polifact_data, "source": "polifact", "year": 2024}
+
+    data = datasets["data"]
+    source = datasets["source"]
+    year = datasets['year']
+
+    # Iterate over each row, combining it into a paragraph and processing it
+    for idx, row in data.iterrows():
+    # Combine row data into a single string (statement + metadata)
+        statement = ', '.join(row.astype(str))
+        # Store statement and metadata in ChromaDB
+        collection.add(
+            documents=[statement],         
+            metadatas=[{"source": source, "year": year, "row_index": idx}],            
+            ids=[f"{source}_{year}_doc_{idx}"]   
+        )
 
 # # Verify the data count in ChromaDB
 # doc_count = collection.count()
