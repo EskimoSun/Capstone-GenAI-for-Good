@@ -13,10 +13,12 @@ from collections.abc import Iterable
 from utils import *
 import asyncio
 from prediction_engine import PredictionEngine
+import google_custom_search
+# from serpapi import GoogleSearch
 # from dotenv import load_dotenv
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = ''
+os.environ['GOOGLE_API_KEY'] = 'AIzaSyDYzYQNtdff7sxg23uUpVavrxl9mNe_1CY'
 
 # Initialize API
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -53,6 +55,8 @@ def tool_config_from_mode(mode: str, fns: Iterable[str] = ()):
 
 chat_session = model.start_chat(history=[])
 tool_config = tool_config_from_mode("auto")
+
+# google = google_custom_search.CustomSearch(apikey="your api_key", engine_id="your engine_id")
 
 @me.stateclass
 class State:
@@ -295,6 +299,84 @@ def chat_input():
             )
         with me.content_button(type="icon", on_click=click_send):
             me.icon("send")
+
+# def chat_window():
+#     state = me.state(State)
+#     with me.box(
+#         style=me.Style(
+#             padding=me.Padding.all(8),
+#             background="white",
+#             display="flex",
+#             width="100%",
+#             border=me.Border.all(
+#                 me.BorderSide(width=0, style="solid", color="black")
+#             ),
+#             border_radius=12,
+#             box_shadow="0 10px 20px #0000000a, 0 2px 6px #0000000a, 0 0 1px #0000000a",
+#         )
+#     ):
+#         # Input area
+#         with me.box(style=me.Style(flex_grow=1)):
+#             me.native_textarea(
+#                 value=state.input,
+#                 autosize=True,
+#                 min_rows=4,
+#                 placeholder="Enter your prompt or query. Search results will be automatically included.",
+#                 style=me.Style(
+#                     padding=me.Padding(top=16, left=16),
+#                     background="white",
+#                     outline="none",
+#                     width="100%",
+#                     overflow_y="auto",
+#                     border=me.Border.all(
+#                         me.BorderSide(style="none"),
+#                     ),
+#                 ),
+#                 on_blur=textarea_on_blur,
+#             )
+#         with me.content_button(type="icon", on_click=click_chat_send):
+#             me.icon("send")
+
+# def click_chat_send(e: me.ClickEvent):
+#     state = me.state(State)
+#     if not state.input.strip():
+#         return
+    
+#     state.in_progress = True
+#     user_prompt = state.input
+#     yield
+
+#     # Conduct a Google Custom Search query
+#     params = {
+#         "q": user_prompt,
+#         "location": "San Diego, California, United States",
+#         "hl": "en",
+#         "gl": "us",
+#         "google_domain": "google.com",
+#         "api_key": "114093c99f6f7f86c455b6e302123c175cf5aefcbd9affa7352f27353dc13d61"
+#     }
+
+#     search = GoogleSearch(params)
+#     results = search.get_dict()
+
+#     # Create a combined prompt with search results
+#     google_search = f"Search Results:\n" + "\n".join(
+#         [f"{i+1}. {result['title']}: {result['snippet']} ({result['url']})"
+#          for i, result in enumerate(results)]
+#     )
+
+#     return google_search
+
+# def search_google_custom(query: str):
+#     results = google.search(query)
+#     search_data = []
+#     for result in results:
+#         search_data.append({
+#             "title": result.title,
+#             "url": result.url,
+#             "snippet": result.snippet
+#         })
+#     return search_data
 
 def textarea_on_blur(e: me.InputBlurEvent):
     state = me.state(State)
