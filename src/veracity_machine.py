@@ -15,6 +15,8 @@ import asyncio
 from prediction_engine import PredictionEngine
 # import google_custom_search
 import serpapi
+# from prettyprinter import pformat
+import json
 # from dotenv import load_dotenv
 import re
 from sklearn.metrics import accuracy_score, classification_report
@@ -65,6 +67,8 @@ class State:
     input: str = ""
     output: str = ""
     in_progress: bool = False
+    chat_window: str = ""
+    search_output: str = ""
     db_input: str = ""
     db_output: str = ""
     file: me.UploadedFile | None = None
@@ -99,6 +103,8 @@ def page():
         ):
             header_text()
             train_predictive_section()
+            chat_window()
+            search_output()
             uploader()
             display_pdf_text()
             chat_input()
@@ -302,83 +308,133 @@ def chat_input():
         with me.content_button(type="icon", on_click=click_send):
             me.icon("send")
 
-# def chat_window():
-#     state = me.state(State)
-#     with me.box(
-#         style=me.Style(
-#             padding=me.Padding.all(8),
-#             background="white",
-#             display="flex",
-#             width="100%",
-#             border=me.Border.all(
-#                 me.BorderSide(width=0, style="solid", color="black")
-#             ),
-#             border_radius=12,
-#             box_shadow="0 10px 20px #0000000a, 0 2px 6px #0000000a, 0 0 1px #0000000a",
-#         )
-#     ):
-#         # Input area
-#         with me.box(style=me.Style(flex_grow=1)):
-#             me.native_textarea(
-#                 value=state.input,
-#                 autosize=True,
-#                 min_rows=4,
-#                 placeholder="Enter your prompt or query. Search results will be automatically included.",
-#                 style=me.Style(
-#                     padding=me.Padding(top=16, left=16),
-#                     background="white",
-#                     outline="none",
-#                     width="100%",
-#                     overflow_y="auto",
-#                     border=me.Border.all(
-#                         me.BorderSide(style="none"),
-#                     ),
-#                 ),
-#                 on_blur=textarea_on_blur,
-#             )
-#         with me.content_button(type="icon", on_click=click_chat_send):
-#             me.icon("send")
+def chat_window():
+    state = me.state(State)
+    with me.box(
+        style=me.Style(
+            padding=me.Padding.all(8),
+            background="white",
+            display="flex",
+            width="100%",
+            border=me.Border.all(
+                me.BorderSide(width=0, style="solid", color="black")
+            ),
+            border_radius=12,
+            box_shadow="0 10px 20px #0000000a, 0 2px 6px #0000000a, 0 0 1px #0000000a",
+            margin=me.Margin(top=36),
+        )
+    ):
+        with me.box(
+            style=me.Style(
+                flex_grow=1,
+            )
+        ):
+            me.native_textarea(
+                value=state.chat_window,
+                autosize=True,
+                min_rows=4,
+                placeholder="Enter your prompt or query. Search results will be automatically included.",
+                style=me.Style(
+                    padding=me.Padding(top=16, left=16),
+                    background="white",
+                    outline="none",
+                    width="100%",
+                    overflow_y="auto",
+                    border=me.Border.all(
+                        me.BorderSide(style="none"),
+                    ),
+                ),
+                on_blur=search_textarea_on_blur,
+            )
+        with me.content_button(type="icon", on_click=click_chat_send):
+            me.icon("send")
 
-# def click_chat_send(e: me.ClickEvent):
-#     state = me.state(State)
-#     if not state.input.strip():
-#         return
+def search_textarea_on_blur(e: me.InputBlurEvent):
+    state = me.state(State)
+    state.chat_window = e.value
+
+related_results = None
+
+def click_chat_send(e: me.ClickEvent):
+    state = me.state(State)
+    if not state.chat_window.strip():
+        return
     
-#     state.in_progress = True
-#     user_prompt = state.input
-#     yield
+    state.in_progress = True  # Start spinner for progress indication
+    user_prompt = state.chat_window
+    state.search_output = "Searching for results...\n"
+    yield
 
-#     # Conduct a Google Custom Search query
-#     params = {
-#         "q": user_prompt,
-#         "location": "San Diego, California, United States",
-#         "hl": "en",
-#         "gl": "us",
-#         "google_domain": "google.com",
-#         "api_key": "114093c99f6f7f86c455b6e302123c175cf5aefcbd9affa7352f27353dc13d61"
-#     }
+    # Conduct the web search
+    search_results = web_search(user_prompt)
 
-#     search = GoogleSearch(params)
-#     results = search.get_dict()
+    # Format the search results for display
+    if search_results:
+        related_results = f"Search Results for '{user_prompt}':\n\n" + format_search_results_pretty(search_results)
+        state.search_output = related_results
+    else:
+        state.search_output = "No results found for your query."
 
-#     # Create a combined prompt with search results
-#     google_search = f"Search Results:\n" + "\n".join(
-#         [f"{i+1}. {result['title']}: {result['snippet']} ({result['url']})"
-#          for i, result in enumerate(results)]
-#     )
+    state.in_progress = False
+    yield
 
-#     return google_search
+# Function to recursively make objects serializable
+def extract_serializable_data(obj):
+    """Recursively convert non-serializable objects to serializable types."""
+    if isinstance(obj, dict):
+        # Convert non-serializable keys to strings
+        return {str(key): extract_serializable_data(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [extract_serializable_data(item) for item in obj]
+    elif hasattr(obj, "__dict__"):
+        # Convert objects with __dict__ attribute to dictionaries
+        return extract_serializable_data(vars(obj))
+    elif isinstance(obj, (str, int, float, bool)) or obj is None:
+        return obj  # Leave primitive types as-is
+    else:
+        return str(obj)  # Convert unsupported types to strings
 
-# def search_google_custom(query: str):
-#     results = google.search(query)
-#     search_data = []
-#     for result in results:
-#         search_data.append({
-#             "title": result.title,
-#             "url": result.url,
-#             "snippet": result.snippet
-#         })
-#     return search_data
+def format_search_results_pretty(search_results):
+    """Formats search results as a pretty JSON string."""
+    try:
+        if hasattr(search_results, "raw_response"):
+            search_dict = search_results.raw_response  # Raw response if available
+        else:
+            search_dict = extract_serializable_data(vars(search_results))  # Fallback: Use vars()
+
+        # Pretty-print the JSON string
+        pretty_json = json.dumps(search_dict, indent=4, ensure_ascii=False)
+        return pretty_json
+
+    except Exception as e:
+        print(f"Error serializing search results: {e}")
+
+def web_search(user_prompt):
+    # Conduct a Google Custom Search query
+    params = {
+        "q": user_prompt,
+        "location": "San Diego, California, United States",
+        "hl": "en",
+        "gl": "us",
+        "google_domain": "google.com",
+        "api_key": ""
+        }
+
+    search = serpapi.search(params)
+    return search
+
+def search_output():
+    state = me.state(State)
+    if state.search_output:
+        with me.box(
+            style=me.Style(
+                background="#F0F4F9",
+                padding=me.Padding.all(16),
+                border_radius=16,
+                margin=me.Margin(top=36),
+            )
+        ):
+            me.text(state.search_output)
 
 def textarea_on_blur(e: me.InputBlurEvent):
     state = me.state(State)
@@ -442,7 +498,8 @@ misleading_intentions = [
 
 def generate_fct_prompt(input_text, predict_score, iterations=3):
     prompt = f'Use {iterations} iterations to check the veracity score of this news article. In each, determine what you missed in the previous iteration based on your evaluation of the objective functions. Also put the result from RAG into consideration/rerank.'
-    prompt += f'\n\n RAG:\n Here, out of six potential labels (true, mostly-true, half-true, barely-true, false, pants-fire), this is the truthfulness label predicted using a classifier model: {predict_score}.\n These are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}'
+    prompt += f'\n\n RAG:\n Here, out of six potential labels (true, mostly-true, half-true, barely-true, false, pants-fire), this is the truthfulness label predicted using a classifier model: {predict_score}.\n These are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}.'
+    prompt += f'Here is some additional information that has been searched from internet: {related_results}.'
     for i in range(1, iterations + 1):
         prompt += f"Iteration {i}: Evaluate the text based on the following objectives and also on microfactors, give explanations on each of these:\n"
         prompt += "\nFactuality Factor 1: Frequency Heuristic:\n"
