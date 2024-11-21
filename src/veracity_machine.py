@@ -13,12 +13,12 @@ from collections.abc import Iterable
 from utils import *
 import asyncio
 from prediction_engine import PredictionEngine
-import google_custom_search
-# from serpapi import GoogleSearch
+# import google_custom_search
+import serpapi
 # from dotenv import load_dotenv
 
 # Remember to set your API key here
-os.environ['GOOGLE_API_KEY'] = ''
+os.environ['GOOGLE_API_KEY'] = 'AIzaSyDYzYQNtdff7sxg23uUpVavrxl9mNe_1CY'
 
 # Initialize API
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
@@ -396,9 +396,10 @@ def click_send(e: me.ClickEvent):
     engine = get_prediction_engine()
     predict_score = engine.predict_new_example(convert_statement_to_series(state.pdf_text))['overall']
 
-    top_100_statements = get_top_100_statements(input_text)
+    # top_100_statements = get_top_100_statements(input_text)
     fct_prompt = generate_fct_prompt(input_text, predict_score)
     combined_input = combine_pdf_and_prompt(fct_prompt, state.pdf_text)  # Combine prompt with PDF text
+    top_100_statements = get_top_100_statements(combined_input)
 
     for chunk in call_api(combined_input):
         state.output += chunk
