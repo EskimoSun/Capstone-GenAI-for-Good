@@ -496,7 +496,17 @@ misleading_intentions = [
     {"description": "Micro Factor 3: Target Audience Assessment", "details": "Analyze audience manipulation. Identify targeting tactics (language, framing). While such tactics can be ethically questionable, they are generally protected speech unless they involve provable falsehoods and meet the very high legal bar for defamation or incitement."}
 ]
 
-def generate_fct_prompt(input_text, predict_score, iterations=3):
+def generate_fct_prompt(input_text, predict_score, iterations=3, regular_CoT=False):
+    # Only use regular CoT prompting for testing
+    if regular_CoT:
+        ffs = ['Frequency Heuristic', 'Misleading Intentions']
+        prompt = f'Use {iterations} iterations to check the veracity score of this news article. Factors to consider are {ffs}. In each, determine what you missed in the previous iteration. Also put the result from RAG into consideration/rerank.'
+        prompt += f'\n\n RAG:\n Here, out of six potential labels (true, mostly-true, half-true, barely-true, false, pants-fire), this is the truthfulness label predicted using a classifier model: {predict_score}.\n These are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}.'
+        prompt += "\nProvide a percentage score and explanation for each iteration and its microfactors.\n\n"
+        prompt += "Final Evaluation: Return an exact numeric veracity score for the text, and provide a matching label out of these six [true, mostly-true, half-true, barely-true, false, pants-fire]"
+        return prompt
+    
+    # Fractal Chain of Thought Prompting with Objective Functions
     prompt = f'Use {iterations} iterations to check the veracity score of this news article. In each, determine what you missed in the previous iteration based on your evaluation of the objective functions. Also put the result from RAG into consideration/rerank.'
     prompt += f'\n\n RAG:\n Here, out of six potential labels (true, mostly-true, half-true, barely-true, false, pants-fire), this is the truthfulness label predicted using a classifier model: {predict_score}.\n These are the top 100 related statement in LiarPLUS dataset that related to this news article: {get_top_100_statements(input_text)}.'
     prompt += f'Here is some additional information that has been searched from internet: {related_results}.'
